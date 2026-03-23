@@ -1,0 +1,5 @@
+results.csv
+queries.txt
+*.pdf
+results
+**/.DS_Store

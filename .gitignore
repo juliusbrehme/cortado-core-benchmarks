@@ -1,0 +1,16 @@
+.idea
+debug.log
+./.idea
+__pycache__
+.vscode/
+*.xes
+.venv
+outputs/
+pm4py/
+.pytest_cache
+*.csv
+cortado_core.egg-info
+.coverage
+venv/
+.envrc
+.direnv
