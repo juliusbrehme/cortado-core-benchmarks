@@ -20,3 +20,6 @@ The script will load the benchmark datasets from the `/cortado_core/visual_query
 The `/cortado_core/visual_query_language/benchmark/resources` subdirectory includes various benchmark datasets and query definitions used for testing and performance evaluation.
 To decrease repository size the files are gzipped. Please decompress them before use.
 
+## Plots
+The plots used in the paper can be found [plots](./cortado_core/visual_query_language/benchmark/plots/)
+
