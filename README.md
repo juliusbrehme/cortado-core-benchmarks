@@ -1,5 +1,5 @@
 # Visual Query Language Benchmark for Cortado-Core
-This directory contains benchmark resources and scripts for evaluating the performance of the Visual Query Language (VQL) implementation in Cortado Core.
+This directory contains benchmark resources and scripts for evaluating the performance of the Visual Query Language (POVQL) implementation in Cortado Core.
 
 ## Setup
 * Install Python 3.10.x (https://www.python.org/downloads/). Make sure to install a 64-BIT version.
