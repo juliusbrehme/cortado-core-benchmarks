@@ -13,6 +13,7 @@ To run the benchmarks execute the main python script.
 ```python
 python ./cortado_core/visual_query_language/benchmark/main.py
 ```
+Right now for each Experiment there is a timelimit of 2sec set. It is possible to remove as well.
 
 The script will load the benchmark datasets from the `/cortado_core/visual_query_language/benchmark/resources` subdirectory, automatically generate queries, measure execution times, and output the results in the `/cortado_core/visual_query_language/benchmark/resources/results/` subdirectory per dataset.
 

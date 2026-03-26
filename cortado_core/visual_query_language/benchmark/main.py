@@ -30,6 +30,7 @@ if __name__ == "__main__":
             exp_id="query_length",
             plot_config=PLOT_CONFIG,
             results_dir=f"results/{variants_name}",
+            timeout_sec=2
         ) 
 
         # --- Experiment 3: Varying parallelism
@@ -43,6 +44,7 @@ if __name__ == "__main__":
             exp_id="parallelism",
             plot_config=PLOT_CONFIG,
             results_dir=f"results/{variants_name}",
+            timeout_sec=2
         )   
 
         PLOT_CONFIG = {
@@ -67,6 +69,7 @@ if __name__ == "__main__":
             exp_id="optionals",
             plot_config=PLOT_CONFIG,
             results_dir=f"results/{variants_name}",
+            timeout_sec=2
         )
 
         # --- Experiment 5: Different anythings
@@ -86,6 +89,7 @@ if __name__ == "__main__":
             exp_id="anythings",
             plot_config=PLOT_CONFIG,
             results_dir=f"results/{variants_name}",
+            timeout_sec=2
         )
 
         # --- Experiment 6: Varying wildcards
@@ -105,6 +109,7 @@ if __name__ == "__main__":
             exp_id="wildcards",
             plot_config=PLOT_CONFIG,
             results_dir=f"results/{variants_name}",
+            timeout_sec=2
         )
 
         experiment7 = Experiment(

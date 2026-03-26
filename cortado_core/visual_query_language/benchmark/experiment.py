@@ -34,21 +34,21 @@ def init_worker(variants_data):
 
 def process_query(args) -> Optional[Tuple[dict, int]]:
     """
-    Top-level function required for multiprocessing pickling.
-    args: (query, query_types, exp_idx)
+    args: (query, query_types, exp_idx, timeout_sec)
     """
-    query, query_types, exp_idx = args
-    
+    query, query_types, exp_idx, timeout_sec = args
+
     if check_double_anything(query):
         return None
 
-    # Use the worker-local miner instance for complexity
     complexity = global_miner.compute_query_complexity(query)
     query_copy = copy.deepcopy(query)
-    
-    # Run Benchmark
-    timings, match_count = run_benchmark(query_copy, global_variants, query_types, 1)
-    
+
+    # Pass timeout_sec down (it can be an int or None)
+    timings, match_count = run_benchmark(
+        query_copy, global_variants, query_types, 1, timeout_sec=timeout_sec
+    )
+
     result = {
         "num_elements": complexity["elements"],
         "num_wildcards": complexity["wildcards"],
@@ -59,10 +59,10 @@ def process_query(args) -> Optional[Tuple[dict, int]]:
         "tree_depth": complexity["depth"],
         "matches": match_count,
     }
-    
+
     for qt, timing in zip(query_types, timings):
         result[qt.name.lower()] = timing
-        
+
     return result, exp_idx
 
 class Experiment:
@@ -74,7 +74,8 @@ class Experiment:
                  desc: str = "", 
                  exp_id: str = None,
                  plot_config: Dict[str, Any] = None,
-                 results_dir: str = None):
+                 results_dir: str = None,
+                 timeout_sec: Optional[int] = None):
         """
         :param variants: The event log/graph variants (passed to workers)
         :param miner: The configured QueryMiner instance (used for generation)
@@ -99,6 +100,7 @@ class Experiment:
         
         self.csv_file = os.path.join(self.results_dir, "results.csv")
         self.pdf_file = os.path.join(self.results_dir, "plots.pdf")
+        self.timeout_sec = timeout_sec
 
     def generate(self):
         print(f"[{self.desc}] Generating {self.num_queries} queries...")
@@ -195,6 +197,12 @@ class Experiment:
                         alpha=0.5, 
                         ax=ax
                     )
+
+                if self.timeout_sec is not None:
+                    timeout_ms = self.timeout_sec * 1000
+                    ax.axhline(y=timeout_ms, color='red', linestyle='--', linewidth=1.5,
+                               label=f'Timeout ({self.timeout_sec}s)')
+                    ax.legend()
                 
                 ax.set_yscale('log')
                 ax.set_title(f"Runtime Distribution vs {col_descriptions[col]} ({self.desc})")
@@ -290,7 +298,7 @@ class BenchmarkExecutor:
             
             # Prepare tasks
             for q in exp.queries:
-                tasks.append((q, exp.query_types, i))
+                tasks.append((q, exp.query_types, i, exp.timeout_sec))
                 
             total_tasks += len(exp.queries)
 
