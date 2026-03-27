@@ -4,6 +4,7 @@ import os
 from typing import Optional, List, Dict, Any, Tuple
 import uuid
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import tqdm
@@ -131,7 +132,7 @@ class Experiment:
         if df.empty:
             print("Error: DataFrame is empty.")
             return
-        
+
         # 1. Determine which complexity columns actually have data (variance > 0)
         potential_cols = [
             "num_elements", "num_wildcards", "num_anything", "num_optionals", "num_parallels", "num_choices",
@@ -154,7 +155,7 @@ class Experiment:
 
         # Prepare for plotting
         algorithms = [qt.name.lower() for qt in self.query_types]
-        
+
         # Check if algorithms are in df columns
         available_algos = [algo for algo in algorithms if algo in df.columns]
         if not available_algos:
@@ -162,67 +163,106 @@ class Experiment:
             return
 
         df_melted = df.melt(
-            id_vars=active_cols, # Only keep active cols as identifiers
+            id_vars=active_cols,  # Only keep active cols as identifiers
             value_vars=available_algos,
             var_name="Algorithm",
             value_name="Runtime"
         )
 
         with PdfPages(self.pdf_file) as pdf:
-            
+
             # --- Plot A: Runtime Distribution vs Metrics ---
             for col in active_cols:
                 fig, ax = plt.subplots(figsize=(10, 6))
-                
-                # Logic: If the metric is discrete (e.g., 1, 2, 3 wildcards), use Box Plots
-                # to show the distribution of runtimes at each level.
-                if df[col].max() - df[col].min() < 100:  # Arbitrary threshold for discreteness
-                    sns.boxplot(
-                        data=df_melted, 
-                        x=col, 
-                        y='Runtime', 
-                        hue='Algorithm', 
-                        ax=ax,
-                        fliersize=3,      # Make outliers smaller
-                        linewidth=1       # Thinner lines for clarity
+
+                # 1. Cut off the long tail of extreme outliers to focus on the important data.
+                # We use the 95th percentile (keeps the bottom 95% of data).
+                cutoff_val = df[col].quantile(1)
+
+                # Fallback: If your data is highly skewed (e.g., 95% of queries have 0 optionals),
+                # the cutoff might equal the minimum. In that case, use the absolute max.
+                if cutoff_val <= df[col].min():
+                    cutoff_val = df[col].max()
+
+                # Filter the melted dataframe for this specific plot
+                plot_df = df_melted[df_melted[col] <= cutoff_val].copy()
+
+                # 2. Determine how many unique values exist in this filtered column
+                unique_vals = plot_df[col].nunique()
+
+                plot_x_col = col
+                if unique_vals > 60:
+                    plot_x_col = f"{col}_binned"
+
+                    # Create clean integer bin edges from the min to our cutoff
+                    min_val = int(np.floor(plot_df[col].min()))
+                    max_val = int(np.ceil(plot_df[col].max()))
+
+                    num_bins = 12  # 12 bins usually fit perfectly on a 10x6 chart
+                    bin_edges = np.linspace(min_val, max_val, num_bins + 1)
+
+                    # Generate nice human-readable labels like "0-10", "11-20"
+                    clean_labels = []
+                    for i in range(num_bins):
+                        left = int(np.round(bin_edges[i]))
+                        right = int(np.round(bin_edges[i + 1]))
+
+                        # Prevent overlapping labels (e.g., "0-10", "11-20" instead of "0-10", "10-20")
+                        if i > 0:
+                            left += 1
+
+                            # If a bin is so small that left and right are the same (e.g., "5-5"), just write "5"
+                        if left >= right:
+                            clean_labels.append(f"{right}")
+                        else:
+                            clean_labels.append(f"{left}-{right}")
+
+                    # Apply our custom bins and labels
+                    plot_df[plot_x_col] = pd.cut(
+                        plot_df[col],
+                        bins=bin_edges,
+                        labels=clean_labels,
+                        include_lowest=True
                     )
-                else:
-                    # Fallback for high-cardinality metrics (like "matches" which might vary wildly)
-                    sns.scatterplot(
-                        data=df_melted, 
-                        x=col, 
-                        y='Runtime', 
-                        hue='Algorithm', 
-                        style='Algorithm', 
-                        alpha=0.5, 
-                        ax=ax
-                    )
+
+                # IMPORTANT: We use plot_df now, not df_melted!
+                sns.boxplot(
+                    data=plot_df,
+                    x=plot_x_col,
+                    y='Runtime',
+                    hue='Algorithm',
+                    ax=ax,
+                    fliersize=3,
+                    linewidth=1
+                )
+
+                # Rotate labels so our new clean strings don't overlap
+                if plot_x_col != col:
+                    ax.tick_params(axis='x', rotation=45)
 
                 if self.timeout_sec is not None:
                     timeout_ms = self.timeout_sec * 1000
                     ax.axhline(y=timeout_ms, color='red', linestyle='--', linewidth=1.5,
                                label=f'Timeout ({self.timeout_sec}s)')
                     ax.legend()
-                
+
                 ax.set_yscale('log')
                 ax.set_title(f"Runtime Distribution vs {col_descriptions[col]} ({self.desc})")
                 ax.set_ylabel("Runtime (ms) - Log Scale")
                 ax.grid(True, which="major", ls="--", alpha=0.5)
-                
-                # Apply scaling if configured
+
                 if 'y_min' in self.plot_config:
                     ax.set_ylim(bottom=self.plot_config['y_min'])
                 if 'y_max' in self.plot_config:
                     ax.set_ylim(top=self.plot_config['y_max'])
-                
+
                 plt.tight_layout()
                 pdf.savefig(fig)
-                
-                # Save individual plots
+
                 plot_filename = f"plot_{col}_vs_runtime"
-                plt.savefig(os.path.join(self.results_dir, f"{plot_filename}.png"))
-                plt.savefig(os.path.join(self.results_dir, f"{plot_filename}.svg"))
-                
+                plt.savefig(os.path.join(self.results_dir, f"{plot_filename}.png"), bbox_inches='tight')
+                plt.savefig(os.path.join(self.results_dir, f"{plot_filename}.svg"), bbox_inches='tight')
+
                 plt.close(fig)
 
             # --- Plot B: Average Runtime over whole Experiment (Boxplot) ---
@@ -232,13 +272,13 @@ class Experiment:
             ax.set_ylabel("Runtime (ms) - Log Scale")
             ax.set_yscale('log')
             ax.grid(True, which="major", ls="--", alpha=0.5)
-            
+
             # Apply scaling if configured
             if 'y_min' in self.plot_config:
                 ax.set_ylim(bottom=self.plot_config['y_min'])
             if 'y_max' in self.plot_config:
                 ax.set_ylim(top=self.plot_config['y_max'])
-            
+
             plt.tight_layout()
             pdf.savefig(fig)
             plt.savefig(os.path.join(self.results_dir, "plot_overall_runtime.png"))
@@ -250,11 +290,11 @@ class Experiment:
             if len(active_cols) > 1:
                 corr_cols = active_cols + available_algos
                 corr_matrix = df[corr_cols].corr()
-                
+
                 fig, ax = plt.subplots(figsize=(10, 8))
                 sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
                 ax.set_title(f'Correlation Matrix ({self.desc})')
-                
+
                 plt.tight_layout()
                 pdf.savefig(fig)
                 plt.savefig(os.path.join(self.results_dir, "plot_correlation.png"))

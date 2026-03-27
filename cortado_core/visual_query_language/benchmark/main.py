@@ -6,7 +6,7 @@ from cortado_core.visual_query_language.query import QueryType
 
 
 if __name__ == "__main__":
-    for variants_name in ["bpi2012", "bpi2017", "bpi2019"]:
+    for variants_name in ["bpi2017", "bpi2012", "bpi2019"]:
         print(f"> Loading {variants_name} variants...")
         variants = load_variants(variants_name)
         print(f"  Loaded {len(variants)} variants.")
@@ -30,8 +30,7 @@ if __name__ == "__main__":
             exp_id="query_length",
             plot_config=PLOT_CONFIG,
             results_dir=f"results/{variants_name}",
-            timeout_sec=2
-        ) 
+        )
 
         # --- Experiment 3: Varying parallelism
         print("> Experiment 3: Varying parallelism...")
@@ -44,15 +43,14 @@ if __name__ == "__main__":
             exp_id="parallelism",
             plot_config=PLOT_CONFIG,
             results_dir=f"results/{variants_name}",
-            timeout_sec=2
-        )   
+        )
 
         PLOT_CONFIG = {
             "y_min": 1,
             "y_max": 10**4
         }
 
-        # --- Experiment 4: Varying optionals
+        #--- Experiment 4: Varying optionals
         print("> Experiment 4: Varying optionals...")
         experiment4 = Experiment(
             variants,
@@ -68,8 +66,7 @@ if __name__ == "__main__":
             desc="Varying optionals",
             exp_id="optionals",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
-            timeout_sec=2
+            results_dir=f"results/{variants_name}"
         )
 
         # --- Experiment 5: Different anythings
@@ -88,8 +85,7 @@ if __name__ == "__main__":
             desc="Varying anythings",
             exp_id="anythings",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
-            timeout_sec=2
+            results_dir=f"results/{variants_name}"
         )
 
         # --- Experiment 6: Varying wildcards
@@ -108,8 +104,7 @@ if __name__ == "__main__":
             desc="Varying wildcards",
             exp_id="wildcards",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
-            timeout_sec=2
+            results_dir=f"results/{variants_name}"
         )
 
         experiment7 = Experiment(
@@ -126,7 +121,7 @@ if __name__ == "__main__":
             desc="Varying choices",
             exp_id="choices",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=f"results/{variants_name}"
         )
 
         # --- Run Experiments ---
