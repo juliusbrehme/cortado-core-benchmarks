@@ -13,9 +13,25 @@ To run the benchmarks execute the main python script.
 ```python
 python ./cortado_core/visual_query_language/benchmark/main.py
 ```
-Right now for each Experiment there is a timelimit of 2sec set. It is possible to remove as well.
 
 The script will load the benchmark datasets from the `/cortado_core/visual_query_language/benchmark/resources` subdirectory, automatically generate queries, measure execution times, and output the results in the `/cortado_core/visual_query_language/benchmark/resources/results/` subdirectory per dataset.
+
+### Options for the benchmarks
+It is possible to set a timeout for the benchmarks. To set a timeout, set the parameter timeout_sec with a number representing seconds. 
+For a 2-second timeout:
+```
+Experiment(
+    variants,
+    QueryMiner(variants, cut_probability=1.0, disable_random_walk=True),
+    num_queries=EXPERIMENT_QUERIES,
+    query_types=[QueryType.VM, QueryType.VM_LAZY, QueryType.DFS, QueryType.BFS],
+    desc="Varying query length",
+    exp_id="query_length",
+    plot_config=PLOT_CONFIG,
+    results_dir=f"results/{variants_name}",
+    timeout_sec=2
+)
+```
 
 ## Resource
 The `/cortado_core/visual_query_language/benchmark/resources` subdirectory includes various benchmark datasets and query definitions used for testing and performance evaluation.
