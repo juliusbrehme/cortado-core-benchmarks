@@ -154,7 +154,7 @@ class Experiment:
         active_cols = [col for col in potential_cols if df[col].max() > df[col].min()]
 
         # Prepare for plotting
-        algorithms = [qt.name.lower() for qt in self.query_types]
+        algorithms = [qt.name for qt in self.query_types]
 
         # Check if algorithms are in df columns
         available_algos = [algo for algo in algorithms if algo in df.columns]
@@ -173,7 +173,18 @@ class Experiment:
 
             # --- Plot A: Runtime Distribution vs Metrics ---
             for col in active_cols:
-                fig, ax = plt.subplots(figsize=(10, 6))
+                figsize = (10, 6)
+                if self.plot_config["figsize"]:
+                    figsize = self.plot_config["figsize"]
+
+                fig, ax = plt.subplots(figsize=figsize)
+
+                font = {'family' : 'normal',
+                        'weight' : 'bold',
+                        'size'   : 22}
+                
+                if self.plot_config["font"]:
+                    font = self.plot_config["font"]
 
                 # 1. Cut off the long tail of extreme outliers to focus on the important data.
                 # We use the 95th percentile (keeps the bottom 95% of data).
@@ -191,7 +202,7 @@ class Experiment:
                 unique_vals = plot_df[col].nunique()
 
                 plot_x_col = col
-                if unique_vals > 60:
+                if unique_vals > 60 and self.plot_config['binned']:
                     plot_x_col = f"{col}_binned"
 
                     # Create clean integer bin edges from the min to our cutoff
@@ -247,16 +258,25 @@ class Experiment:
                     ax.legend()
 
                 ax.set_yscale('log')
-                ax.set_title(f"Runtime Distribution vs {col_descriptions[col]} ({self.desc})")
-                ax.set_ylabel("Runtime (ms) - Log Scale")
+                ax.set_title(f"Runtime Distribution vs {col_descriptions[col]} ({self.desc})", fontdict=font)
+                ax.set_ylabel("Runtime (ms) - Log Scale", fontdict=font)
+                ax.set_xlabel(col_descriptions[col], fontdict=font)
                 ax.grid(True, which="major", ls="--", alpha=0.5)
 
                 if 'y_min' in self.plot_config:
                     ax.set_ylim(bottom=self.plot_config['y_min'])
                 if 'y_max' in self.plot_config:
                     ax.set_ylim(top=self.plot_config['y_max'])
+                if 'x_min' in self.plot_config:
+                    ax.set_xlim(left=self.plot_config['x_min'])
+                if 'x_max' in self.plot_config:
+                    ax.set_xlim(right=self.plot_config['x_max'])
 
                 plt.tight_layout()
+
+                
+
+                plt.rc('font', **font)
                 pdf.savefig(fig)
 
                 plot_filename = f"plot_{col}_vs_runtime"
@@ -332,7 +352,7 @@ class BenchmarkExecutor:
             columns = [
                 "num_elements", "num_wildcards", "num_anything", "num_optionals", "num_parallels", "num_choices",
                 "tree_depth", "matches"
-            ] + [qt.name.lower() for qt in exp.query_types]
+            ] + [qt.name for qt in exp.query_types]
             
             pd.DataFrame(columns=columns).to_csv(exp.csv_file, index=False)
             

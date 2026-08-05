@@ -12,49 +12,76 @@ if __name__ == "__main__":
         print(f"  Loaded {len(variants)} variants.")
 
         EXPERIMENT_QUERIES = 1000
+
+        TIMEOUT = 9
+
+        SEED = 42
+
+        FONT = {'family' : 'normal',
+                'weight' : 'bold',
+                'size'   : 22}
+        
+        FONT = {'size': 12, 'weight': 'bold'}
+        FIGSIZE = (10,6)
         
         ### We will now compare the best algorithms
         PLOT_CONFIG = {
-            "y_min": 1,
-            "y_max": 5*10**2
+            "y_min": 10**1,
+            "y_max": 10**3,
+            "x_max": 25,
+            "binned": False,
+            "font": FONT,
+            "figsize": FIGSIZE
         }
 
         # --- Experiment 2: Varying query length scaled
         print("> Experiment 2: Varying query length scaled...")
         experiment2 = Experiment(
             variants,
-            QueryMiner(variants, cut_probability=1.0, disable_random_walk=True),
+            QueryMiner(variants, seed=SEED, cut_probability=1.0, disable_random_walk=True),
             num_queries=EXPERIMENT_QUERIES,
             query_types=[QueryType.VM, QueryType.VM_LAZY, QueryType.DFS, QueryType.BFS],
             desc="Varying query length",
             exp_id="query_length",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=f"results/{variants_name}"
         )
 
+        PLOT_CONFIG = {
+            "y_min": 10**1,
+            "y_max": 10**3,
+            "x_max": 10,
+            "binned": False,
+            "font": FONT,
+            "figsize": FIGSIZE
+        }
         # --- Experiment 3: Varying parallelism
         print("> Experiment 3: Varying parallelism...")
         experiment3 = Experiment(
             variants,
-            QueryMiner(variants, cut_probability=1.0, disable_random_walk=True),
+            QueryMiner(variants, seed=SEED, cut_probability=1.0, disable_random_walk=True),
             num_queries=EXPERIMENT_QUERIES,
             query_types=[QueryType.VM, QueryType.VM_LAZY, QueryType.DFS, QueryType.BFS],
             desc="Varying parallelism",
             exp_id="parallelism",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=f"results/{variants_name}"
         )
 
         PLOT_CONFIG = {
-            "y_min": 1,
-            "y_max": 10**4
+            "y_min": 10**1,
+            "y_max": 10**4,
+            "binned": False,
+            "x_max": 8,
+            "font": FONT,
+            "figsize": FIGSIZE
         }
 
         #--- Experiment 4: Varying optionals
         print("> Experiment 4: Varying optionals...")
         experiment4 = Experiment(
             variants,
-            QueryMiner(variants, cut_probability=0.2, mutation_probabilities={
+            QueryMiner(variants, seed=SEED, cut_probability=0.2, mutation_probabilities={
                 "make_wildcard": 0.0,
                 "make_anything": 0.0,
                 "make_optional": 0.95,
@@ -66,14 +93,24 @@ if __name__ == "__main__":
             desc="Varying optionals",
             exp_id="optionals",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}"
+            results_dir=f"results/{variants_name}",
+            timeout_sec=TIMEOUT
         )
+
+        PLOT_CONFIG = {
+            "y_min": 10**1,
+            "y_max": 10**4,
+            "binned": False,
+            "font": FONT,
+            "x_max": 5,
+            "figsize": FIGSIZE
+        }
 
         # --- Experiment 5: Different anythings
         print("> Experiment 5: Different anythings...")
         experiment5 = Experiment(
             variants,
-            QueryMiner(variants, cut_probability=0.2, mutation_probabilities={
+            QueryMiner(variants, seed=SEED, cut_probability=0.2, mutation_probabilities={
                 "make_wildcard": 0.0,
                 "make_anything": 0.95,
                 "make_optional": 0.0,
@@ -85,14 +122,24 @@ if __name__ == "__main__":
             desc="Varying anythings",
             exp_id="anythings",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}"
+            results_dir=f"results/{variants_name}",
+            timeout_sec=TIMEOUT
         )
+
+        PLOT_CONFIG = {
+            "y_min": 10**1,
+            "y_max": 10**4,
+            "binned": False,
+            "font": FONT,
+            "x_max": 7,
+            "figsize": FIGSIZE
+        }
 
         # --- Experiment 6: Varying wildcards
         print("> Experiment 6: Varying wildcards...")
         experiment6 = Experiment(
             variants,
-            QueryMiner(variants, cut_probability=0.2, mutation_probabilities={
+            QueryMiner(variants, seed=SEED, cut_probability=0.2, mutation_probabilities={
                 "make_wildcard": 0.95,
                 "make_anything": 0.0,
                 "make_optional": 0.0,
@@ -104,12 +151,13 @@ if __name__ == "__main__":
             desc="Varying wildcards",
             exp_id="wildcards",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}"
+            results_dir=f"results/{variants_name}",
+            timeout_sec=TIMEOUT
         )
 
         experiment7 = Experiment(
             variants,
-            QueryMiner(variants, cut_probability=0.2, mutation_probabilities={
+            QueryMiner(variants, seed=SEED, cut_probability=0.2, mutation_probabilities={
                 "make_wildcard": 0.0,
                 "make_anything": 0.0,
                 "make_optional": 0.0,
@@ -121,7 +169,8 @@ if __name__ == "__main__":
             desc="Varying choices",
             exp_id="choices",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}"
+            results_dir=f"results/{variants_name}",
+            timeout_sec=TIMEOUT
         )
 
         # --- Run Experiments ---

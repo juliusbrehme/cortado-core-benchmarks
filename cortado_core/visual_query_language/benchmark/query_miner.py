@@ -101,7 +101,7 @@ class QueryMiner:
                 continue
         
             current_activity = variant_to_modify[0]
-            alternative_activities = list(self.available_activities - {current_activity})
+            alternative_activities = sorted(self.available_activities - {current_activity})
             if not alternative_activities:
                 return False
             

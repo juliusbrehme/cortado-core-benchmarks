@@ -6,6 +6,7 @@ This directory contains benchmark resources and scripts for evaluating the perfo
 * Optional (recommended): Create a virtual environment (https://docs.python.org/3/library/venv.html) and activate it
 * Install all packages required by cortado-core
   * Execute `pip install -r requirements.txt`
+* Please decompress the gzipped files in `/cortado_core/visual_query_language/benchmark/resources` before use. The directory should contain the files: _bpi2012.p_, _bpi2017.p_ and _bpi2019.p_.
 
 
 ## Running Benchmarks
