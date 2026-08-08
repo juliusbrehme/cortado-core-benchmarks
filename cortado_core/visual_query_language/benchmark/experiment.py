@@ -4,6 +4,7 @@ import os
 from typing import Optional, List, Dict, Any, Tuple
 import uuid
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -14,6 +15,84 @@ from cortado_core.visual_query_language.benchmark.benchmark import run_benchmark
 from cortado_core.visual_query_language.benchmark.query_miner import QueryMiner
 from cortado_core.visual_query_language.benchmark.utils import check_double_anything, serialize_group
 from cortado_core.visual_query_language.query import QueryType
+
+
+# --- Publication styling ---------------------------------------------------
+# Colorblind-safe categorical palette (Okabe-Ito), assigned to algorithms in a
+# FIXED order so a given algorithm keeps the exact same color in every figure of
+# the paper. Never let seaborn cycle these per-figure.
+ALGO_COLORS = {
+    "VM": "#0072B2",       # blue
+    "VM_LAZY": "#E69F00",  # orange
+    "DFS": "#009E73",      # bluish green
+    "BFS": "#CC79A7",      # reddish purple (kept well apart from the orange)
+}
+# Extra hues used only if an experiment adds algorithms beyond the four above.
+_EXTRA_COLORS = ["#D55E00", "#56B4E9", "#F0E442", "#000000"]
+
+# Short, print-friendly legend labels.
+ALGO_LABELS = {
+    "VM": "VM",
+    "VM_LAZY": "VM (lazy)",
+    "DFS": "DFS",
+    "BFS": "BFS",
+}
+
+
+def _column_major(items, ncol):
+    """Reorder items so a row-major legend with ``ncol`` columns fills up
+    column-by-column. With 4 items and ncol=2 the columns become [0,1] and
+    [2,3], i.e. the 3rd/4th entries sit *under* the 1st/2nd (BFS under DFS)."""
+    n = len(items)
+    nrows = -(-n // ncol)  # ceil division
+    ordered = []
+    for r in range(nrows):
+        for c in range(ncol):
+            idx = c * nrows + r
+            if idx < n:
+                ordered.append(items[idx])
+    return ordered
+
+
+def algo_palette(algorithms):
+    """Return a stable {algorithm: color} map for the given algorithm names."""
+    palette = {}
+    spare = iter(_EXTRA_COLORS)
+    for algo in algorithms:
+        palette[algo] = ALGO_COLORS.get(algo) or next(spare, "#666666")
+    return palette
+
+
+def set_publication_style(font_size=8):
+    """Global matplotlib rcParams tuned for small, print-quality figures.
+
+    Small figures live or die on typography and restraint: modest fonts, thin
+    lines, a recessive grid and no heavy frame. We set this once per plot() call.
+    """
+    sns.set_theme(style="whitegrid", context="paper")
+    plt.rcParams.update({
+        "font.size": font_size,
+        "axes.titlesize": font_size + 1,
+        "axes.labelsize": font_size,
+        "xtick.labelsize": font_size - 1,
+        "ytick.labelsize": font_size - 1,
+        "legend.fontsize": font_size - 1,
+        "axes.linewidth": 0.6,
+        "grid.linewidth": 0.4,
+        "grid.alpha": 0.4,
+        "xtick.major.width": 0.6,
+        "ytick.major.width": 0.6,
+        "lines.linewidth": 1.2,
+        "savefig.dpi": 300,
+        "figure.dpi": 150,
+        # Keep text as text in vector output (so LaTeX/Illustrator can select it).
+        "svg.fonttype": "none",
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    })
+    # Trim the top/right spines for a lighter look.
+    plt.rcParams["axes.spines.top"] = False
+    plt.rcParams["axes.spines.right"] = False
 
 
 # --- Global Scope for Workers ---
@@ -169,157 +248,155 @@ class Experiment:
             value_name="Runtime"
         )
 
+        # --- Resolve styling config (all optional, sensible paper defaults) ---
+        cfg = self.plot_config
+        figsize = cfg.get("figsize") or (3.4, 2.7)
+        font_size = (cfg.get("font") or {}).get("size", 8)
+        style = cfg.get("style", "box")          # "box" or "line" (median + IQR band)
+        show_title = cfg.get("show_title", False)  # paper: caption carries the title
+        show_fliers = cfg.get("showfliers", False)  # hide outlier dots -> cleaner small plots
+        legend_pos = cfg.get("legend", "top")      # "top", "best", or False
+        max_xticks = cfg.get("max_xticks", 12)     # thin x labels beyond this many groups
+
+        set_publication_style(font_size)
+        palette = algo_palette(available_algos)
+        pretty = lambda a: ALGO_LABELS.get(a, a)
+
+        def finalize(ax, col):
+            """Shared axis cosmetics: log y, labels, limits, timeout line, legend."""
+            ax.set_yscale("log")
+            ax.set_ylabel("Runtime (ms)")
+            ax.set_xlabel(col_descriptions[col])
+            if show_title:
+                ax.set_title(f"{col_descriptions[col]} ({self.desc})")
+            ax.grid(True, which="major", ls="--", alpha=0.4)
+            ax.margins(x=0.02)
+
+            if "y_min" in cfg:
+                ax.set_ylim(bottom=cfg["y_min"])
+            if "y_max" in cfg:
+                ax.set_ylim(top=cfg["y_max"])
+
+            algo_handles = [Line2D([0], [0], color=palette[a], lw=2.2, label=pretty(a))
+                            for a in available_algos]
+
+            # Two columns, filled column-major, so e.g. BFS lines up under DFS.
+            ncol = 2 if len(algo_handles) >= 3 else 1
+            handles = _column_major(algo_handles, ncol)
+
+            if self.timeout_sec is not None:
+                timeout_ms = self.timeout_sec * 1000
+                ax.axhline(y=timeout_ms, color="0.35", linestyle=":", linewidth=1.0)
+                # Appended last, so it sits on its own row beneath the grid.
+                handles.append(Line2D([0], [0], color="0.35", linestyle=":", lw=1.0,
+                                      label=f"Timeout ({self.timeout_sec}s)"))
+
+            # Drop any auto-legend seaborn added; place our own clean one.
+            if ax.get_legend() is not None:
+                ax.get_legend().remove()
+            if legend_pos == "top":
+                ax.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 1.0),
+                          ncol=ncol, frameon=False, handlelength=1.4,
+                          columnspacing=1.0, handletextpad=0.4, borderaxespad=0.1)
+            elif legend_pos:
+                ax.legend(handles=handles, loc=legend_pos, ncol=ncol, frameon=False,
+                          handlelength=1.4, handletextpad=0.4)
+
+        def save_current(fig, name):
+            pdf.savefig(fig, bbox_inches="tight")
+            for ext in ("pdf", "png", "svg"):
+                fig.savefig(os.path.join(self.results_dir, f"{name}.{ext}"),
+                            bbox_inches="tight")
+            plt.close(fig)
+
         with PdfPages(self.pdf_file) as pdf:
 
-            # --- Plot A: Runtime Distribution vs Metrics ---
+            # --- Plot A: Runtime vs each varied metric ---
             for col in active_cols:
-                figsize = (10, 6)
-                if self.plot_config["figsize"]:
-                    figsize = self.plot_config["figsize"]
+                # Focus on the region of interest: cap the metric at x_max (if set) so
+                # small figures don't try to cram dozens of x-groups across a few inches.
+                plot_df = df_melted.copy()
+                if "x_min" in cfg:
+                    plot_df = plot_df[plot_df[col] >= cfg["x_min"]]
+                if "x_max" in cfg:
+                    plot_df = plot_df[plot_df[col] <= cfg["x_max"]]
+                if plot_df.empty:
+                    continue
+
+                # A boxplot with hundreds of integer x-values is unreadable at this
+                # size; fall back to the compact line style for high-cardinality metrics.
+                n_unique = plot_df[col].nunique()
+                effective_style = style
+                if style == "box" and n_unique > 2 * max_xticks:
+                    effective_style = "line"
 
                 fig, ax = plt.subplots(figsize=figsize)
 
-                font = {'family' : 'normal',
-                        'weight' : 'bold',
-                        'size'   : 22}
-                
-                if self.plot_config["font"]:
-                    font = self.plot_config["font"]
-
-                # 1. Cut off the long tail of extreme outliers to focus on the important data.
-                # We use the 95th percentile (keeps the bottom 95% of data).
-                cutoff_val = df[col].quantile(1)
-
-                # Fallback: If your data is highly skewed (e.g., 95% of queries have 0 optionals),
-                # the cutoff might equal the minimum. In that case, use the absolute max.
-                if cutoff_val <= df[col].min():
-                    cutoff_val = df[col].max()
-
-                # Filter the melted dataframe for this specific plot
-                plot_df = df_melted[df_melted[col] <= cutoff_val].copy()
-
-                # 2. Determine how many unique values exist in this filtered column
-                unique_vals = plot_df[col].nunique()
-
-                plot_x_col = col
-                if unique_vals > 60 and self.plot_config['binned']:
-                    plot_x_col = f"{col}_binned"
-
-                    # Create clean integer bin edges from the min to our cutoff
-                    min_val = int(np.floor(plot_df[col].min()))
-                    max_val = int(np.ceil(plot_df[col].max()))
-
-                    num_bins = 12  # 12 bins usually fit perfectly on a 10x6 chart
-                    bin_edges = np.linspace(min_val, max_val, num_bins + 1)
-
-                    # Generate nice human-readable labels like "0-10", "11-20"
-                    clean_labels = []
-                    for i in range(num_bins):
-                        left = int(np.round(bin_edges[i]))
-                        right = int(np.round(bin_edges[i + 1]))
-
-                        # Prevent overlapping labels (e.g., "0-10", "11-20" instead of "0-10", "10-20")
-                        if i > 0:
-                            left += 1
-
-                            # If a bin is so small that left and right are the same (e.g., "5-5"), just write "5"
-                        if left >= right:
-                            clean_labels.append(f"{right}")
-                        else:
-                            clean_labels.append(f"{left}-{right}")
-
-                    # Apply our custom bins and labels
-                    plot_df[plot_x_col] = pd.cut(
-                        plot_df[col],
-                        bins=bin_edges,
-                        labels=clean_labels,
-                        include_lowest=True
+                if effective_style == "line":
+                    # Median trend + interquartile band per algorithm: reads cleanly
+                    # even at half-page width and shows the scaling behaviour directly.
+                    for algo in available_algos:
+                        sub = plot_df[plot_df["Algorithm"] == algo]
+                        grp = sub.groupby(col)["Runtime"]
+                        stats = grp.agg(["median"])
+                        q1 = grp.quantile(0.25)
+                        q3 = grp.quantile(0.75)
+                        x = stats.index.values
+                        ax.fill_between(x, q1.values, q3.values, color=palette[algo],
+                                        alpha=0.15, linewidth=0)
+                        ax.plot(x, stats["median"].values, color=palette[algo],
+                                marker="o", markersize=2.5, linewidth=1.3)
+                else:
+                    # Box style: thin lines, no flier clutter, fixed colorblind palette.
+                    sns.boxplot(
+                        data=plot_df, x=col, y="Runtime", hue="Algorithm",
+                        hue_order=available_algos, palette=palette, ax=ax,
+                        linewidth=0.5, fliersize=1.2, showfliers=show_fliers,
+                        width=0.8,
                     )
+                    # With many integer x-values, keep only every k-th tick label.
+                    n_groups = plot_df[col].nunique()
+                    if n_groups > max_xticks:
+                        step = int(np.ceil(n_groups / max_xticks))
+                        for i, lbl in enumerate(ax.get_xticklabels()):
+                            lbl.set_visible(i % step == 0)
 
-                # IMPORTANT: We use plot_df now, not df_melted!
-                sns.boxplot(
-                    data=plot_df,
-                    x=plot_x_col,
-                    y='Runtime',
-                    hue='Algorithm',
-                    ax=ax,
-                    fliersize=3,
-                    linewidth=1
-                )
+                finalize(ax, col)
+                fig.tight_layout()
+                save_current(fig, f"plot_{col}_vs_runtime")
 
-                # Rotate labels so our new clean strings don't overlap
-                if plot_x_col != col:
-                    ax.tick_params(axis='x', rotation=45)
+            # --- Plot B: Overall runtime distribution per algorithm ---
+            fig, ax = plt.subplots(figsize=figsize)
+            sns.boxplot(data=df_melted, x="Algorithm", y="Runtime", ax=ax,
+                        order=available_algos, palette=palette,
+                        linewidth=0.5, fliersize=1.2, showfliers=show_fliers, width=0.7)
+            ax.set_xticklabels([pretty(a) for a in available_algos])
+            ax.set_yscale("log")
+            ax.set_ylabel("Runtime (ms)")
+            ax.set_xlabel("")
+            if show_title:
+                ax.set_title(f"Overall runtime ({self.desc})")
+            ax.grid(True, which="major", ls="--", alpha=0.4)
+            if "y_min" in cfg:
+                ax.set_ylim(bottom=cfg["y_min"])
+            if "y_max" in cfg:
+                ax.set_ylim(top=cfg["y_max"])
+            fig.tight_layout()
+            save_current(fig, "plot_overall_runtime")
 
-                if self.timeout_sec is not None:
-                    timeout_ms = self.timeout_sec * 1000
-                    ax.axhline(y=timeout_ms, color='red', linestyle='--', linewidth=1.5,
-                               label=f'Timeout ({self.timeout_sec}s)')
-                    ax.legend()
-
-                ax.set_yscale('log')
-                ax.set_title(f"Runtime Distribution vs {col_descriptions[col]} ({self.desc})", fontdict=font)
-                ax.set_ylabel("Runtime (ms) - Log Scale", fontdict=font)
-                ax.set_xlabel(col_descriptions[col], fontdict=font)
-                ax.grid(True, which="major", ls="--", alpha=0.5)
-
-                if 'y_min' in self.plot_config:
-                    ax.set_ylim(bottom=self.plot_config['y_min'])
-                if 'y_max' in self.plot_config:
-                    ax.set_ylim(top=self.plot_config['y_max'])
-                if 'x_min' in self.plot_config:
-                    ax.set_xlim(left=self.plot_config['x_min'])
-                if 'x_max' in self.plot_config:
-                    ax.set_xlim(right=self.plot_config['x_max'])
-
-                plt.tight_layout()
-
-                
-
-                plt.rc('font', **font)
-                pdf.savefig(fig)
-
-                plot_filename = f"plot_{col}_vs_runtime"
-                plt.savefig(os.path.join(self.results_dir, f"{plot_filename}.png"), bbox_inches='tight')
-                plt.savefig(os.path.join(self.results_dir, f"{plot_filename}.svg"), bbox_inches='tight')
-
-                plt.close(fig)
-
-            # --- Plot B: Average Runtime over whole Experiment (Boxplot) ---
-            fig, ax = plt.subplots(figsize=(10, 6))
-            sns.boxplot(data=df_melted, x='Algorithm', y='Runtime', ax=ax)
-            ax.set_title(f"Runtime Distribution over Experiment ({self.desc})")
-            ax.set_ylabel("Runtime (ms) - Log Scale")
-            ax.set_yscale('log')
-            ax.grid(True, which="major", ls="--", alpha=0.5)
-
-            # Apply scaling if configured
-            if 'y_min' in self.plot_config:
-                ax.set_ylim(bottom=self.plot_config['y_min'])
-            if 'y_max' in self.plot_config:
-                ax.set_ylim(top=self.plot_config['y_max'])
-
-            plt.tight_layout()
-            pdf.savefig(fig)
-            plt.savefig(os.path.join(self.results_dir, "plot_overall_runtime.png"))
-            plt.savefig(os.path.join(self.results_dir, "plot_overall_runtime.svg"))
-            plt.close(fig)
-
-            # --- Plot C: Correlation Matrix ---
-            # (Only if we have at least 2 columns to correlate)
+            # --- Plot C: Correlation Matrix (diagnostic) ---
             if len(active_cols) > 1:
                 corr_cols = active_cols + available_algos
                 corr_matrix = df[corr_cols].corr()
 
-                fig, ax = plt.subplots(figsize=(10, 8))
-                sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
-                ax.set_title(f'Correlation Matrix ({self.desc})')
-
-                plt.tight_layout()
-                pdf.savefig(fig)
-                plt.savefig(os.path.join(self.results_dir, "plot_correlation.png"))
-                plt.savefig(os.path.join(self.results_dir, "plot_correlation.svg"))
-                plt.close(fig)
+                fig, ax = plt.subplots(figsize=(max(figsize[0], 5), max(figsize[0], 5)))
+                sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f",
+                            ax=ax, annot_kws={"size": font_size - 2}, cbar=False,
+                            vmin=-1, vmax=1)
+                if show_title:
+                    ax.set_title(f"Correlation ({self.desc})")
+                fig.tight_layout()
+                save_current(fig, "plot_correlation")
 
         print(f"[{self.desc}] Plots saved.")
 

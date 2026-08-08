@@ -6,6 +6,11 @@ from cortado_core.utils.split_graph import SequenceGroup
 from cortado_core.visual_query_language.query import create_query_instance, QueryType
 
 
+# signal.alarm/SIGALRM only exist on Unix. On Windows we fall back to a
+# cooperative wall-clock check between variants (see run_matching).
+HAS_SIGALRM = hasattr(signal, "SIGALRM")
+
+
 class TimeoutException(Exception):
     pass
 
@@ -14,11 +19,15 @@ def timeout_handler(signum, frame):
     raise TimeoutException("Query execution timed out")
 
 
-def run_matching(query, variants, query_type):
+def run_matching(query, variants, query_type, deadline: Optional[float] = None):
     instance = create_query_instance(query, query_type)
     counter = 0
     for v in variants:
         counter += instance.match(v)
+        # Cooperative timeout for platforms without SIGALRM (e.g. Windows): we
+        # can't preempt, so we check the wall clock between variants instead.
+        if deadline is not None and time.perf_counter() > deadline:
+            raise TimeoutException("Query execution timed out")
     return counter
 
 
@@ -39,15 +48,17 @@ def run_benchmark(query, variants: List[SequenceGroup], query_types: List[QueryT
     for query_type in query_types:
         query_copy = copy.deepcopy(query)  # we need a fresh query copy for each algorithm (they may modify it)
 
-        # Set the signal alarm if a timeout is provided
-        if timeout_sec is not None:
+        # Preemptive SIGALRM timeout on Unix; cooperative deadline elsewhere.
+        use_signal = timeout_sec is not None and HAS_SIGALRM
+        if use_signal:
             signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(timeout_sec)
 
         start_time = time.perf_counter()
+        deadline = start_time + timeout_sec if (timeout_sec is not None and not use_signal) else None
         try:
             for _ in range(iterations):
-                run_matching(query_copy, variants, query_type)
+                run_matching(query_copy, variants, query_type, deadline=deadline)
 
             elapsed_time = time.perf_counter() - start_time
             avg_time = (elapsed_time / iterations) * 1000  # Convert to ms
@@ -64,7 +75,7 @@ def run_benchmark(query, variants: List[SequenceGroup], query_types: List[QueryT
 
         finally:
             # Always disable the alarm after the run
-            if timeout_sec is not None:
+            if use_signal:
                 signal.alarm(0)
 
         timings.append(avg_time)

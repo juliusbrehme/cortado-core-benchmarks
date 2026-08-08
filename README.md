@@ -15,6 +15,16 @@ To run the benchmarks execute the main python script.
 python ./cortado_core/visual_query_language/benchmark/main.py
 ```
 
+If you have already run the benchmark you can also make use of:
+```python
+python ./cortado_core/visual_query_language/benchmark/main.py --plot-only
+```
+
+By default, the script creates box plots, the figures from the paper (lineplots) are created with:
+```python
+python ./cortado_core/visual_query_language/benchmark/main.py --plot-only --style line
+```
+
 The script will load the benchmark datasets from the `/cortado_core/visual_query_language/benchmark/resources` subdirectory, automatically generate queries, measure execution times, and output the results in the `/cortado_core/visual_query_language/benchmark/resources/results/` subdirectory per dataset.
 
 ### Options for the benchmarks
