@@ -241,7 +241,10 @@ class QueryMiner:
             else:
                 variant = self.pick_random_variant()
 
-            query = SequenceGroup([elem for elem in variant])  #  copy
+            if isinstance(variant, SequenceGroup):
+                query = SequenceGroup([elem for elem in variant])  # copy
+            else:
+                query = SequenceGroup([variant])  # LeafGroup / ParallelGroup variant
             self.mutate_query(query)
             self.queries.append(query)
 

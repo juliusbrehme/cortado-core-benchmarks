@@ -38,7 +38,7 @@ if __name__ == "__main__":
     if PLOT_ONLY:
         print("> Plot-only mode: loading results from CSVs, skipping benchmark run.")
 
-    for variants_name in ["bpi2012", "bpi2019"]:
+    for variants_name in ["bpi2012", "bpi2017", "bpi2019"]:
         if PLOT_ONLY:
             variants = None
         else:
