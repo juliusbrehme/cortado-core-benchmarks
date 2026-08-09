@@ -27,6 +27,28 @@ def _get_style(argv, default="box"):
 PLOT_STYLE = _get_style(sys.argv[1:])
 
 
+def _get_list_opt(argv, name):
+    """Read a comma-separated (or repeated) option, e.g. `--only a,b` /
+    `--only=a --only b`. Returns a set of values, or None if the option is absent."""
+    vals = []
+    for i, arg in enumerate(argv):
+        if arg == name and i + 1 < len(argv):
+            vals.extend(argv[i + 1].split(","))
+        elif arg.startswith(name + "="):
+            vals.extend(arg.split("=", 1)[1].split(","))
+    cleaned = {v.strip() for v in vals if v.strip()}
+    return cleaned or None
+
+
+# Restrict which datasets / experiments actually run, so you can re-do only the
+# missing ones without wiping (and recomputing) CSVs that are already complete:
+#   --dataset bpi2019            only touch bpi2019
+#   --only anythings,wildcards,choices   only (re)run these experiments
+# Experiments NOT selected keep their existing CSVs and are still plotted.
+ONLY_DATASETS = _get_list_opt(sys.argv[1:], "--dataset")
+ONLY_EXPERIMENTS = _get_list_opt(sys.argv[1:], "--only")
+
+
 def make_miner(variants, **kwargs):
     """Build a QueryMiner, or None in plot-only mode (no variants needed to plot)."""
     if PLOT_ONLY:
@@ -38,7 +60,10 @@ if __name__ == "__main__":
     if PLOT_ONLY:
         print("> Plot-only mode: loading results from CSVs, skipping benchmark run.")
 
-    for variants_name in ["bpi2012", "bpi2017", "bpi2019"]:
+    for variants_name in ["bpi2012", "bpi2019"]:
+        if ONLY_DATASETS is not None and variants_name not in ONLY_DATASETS:
+            continue
+
         if PLOT_ONLY:
             variants = None
         else:
@@ -46,7 +71,7 @@ if __name__ == "__main__":
             variants = load_variants(variants_name)
             print(f"  Loaded {len(variants)} variants.")
 
-        EXPERIMENT_QUERIES = 1000
+        EXPERIMENT_QUERIES = 10000
 
         TIMEOUT = 60
 
@@ -61,8 +86,8 @@ if __name__ == "__main__":
         ### We will now compare the best algorithms
         PLOT_CONFIG = {
             "y_min": 10**1,
-            "y_max": 10**3,
-            "x_max": 40,
+            "y_max": 10**5,
+            "x_max": 100,
             "binned": False,
             "font": FONT,
             "figsize": FIGSIZE
@@ -84,8 +109,8 @@ if __name__ == "__main__":
 
         PLOT_CONFIG = {
             "y_min": 10**1,
-            "y_max": 10**3,
-            "x_max": 10,
+            "y_max": 10**5,
+            "x_max": 100,
             "binned": False,
             "font": FONT,
             "figsize": FIGSIZE
@@ -106,9 +131,9 @@ if __name__ == "__main__":
 
         PLOT_CONFIG = {
             "y_min": 10**1,
-            "y_max": 10**4,
+            "y_max": 10**5,
             "binned": False,
-            "x_max": 10,
+            "x_max": 100,
             "font": FONT,
             "figsize": FIGSIZE
         }
@@ -135,10 +160,10 @@ if __name__ == "__main__":
 
         PLOT_CONFIG = {
             "y_min": 10**1,
-            "y_max": 10**4,
+            "y_max": 10**5,
             "binned": False,
             "font": FONT,
-            "x_max": 10,
+            "x_max": 100,
             "figsize": FIGSIZE
         }
 
@@ -164,10 +189,10 @@ if __name__ == "__main__":
 
         PLOT_CONFIG = {
             "y_min": 10**1,
-            "y_max": 10**4,
+            "y_max": 10**5,
             "binned": False,
             "font": FONT,
-            "x_max": 10,
+            "x_max": 100,
             "figsize": FIGSIZE
         }
 
@@ -213,9 +238,16 @@ if __name__ == "__main__":
         experiments = [experiment2, experiment3, experiment4, experiment5, experiment6, experiment7]
 
         # Run the benchmark unless we only want to (re)generate plots from existing CSVs.
+        # With --only, run just the selected experiments; the rest keep their CSVs.
         if not PLOT_ONLY:
-            executor = BenchmarkExecutor(experiments)
-            executor.run()
+            to_run = experiments
+            if ONLY_EXPERIMENTS is not None:
+                to_run = [e for e in experiments if e.id in ONLY_EXPERIMENTS]
+            if to_run:
+                print(f"> Running experiments: {[e.id for e in to_run]}")
+                BenchmarkExecutor(to_run).run()
+            else:
+                print("> No experiments selected to run (check --only values).")
 
         # Apply the global plot style (box/line) to every experiment.
         for experiment in experiments:

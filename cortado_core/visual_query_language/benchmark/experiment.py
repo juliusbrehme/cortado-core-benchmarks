@@ -112,6 +112,12 @@ def init_worker(variants_data):
     global_miner = QueryMiner(global_variants)
 
 
+# Sentinel returned by a worker when a single query blows up (e.g. the matcher
+# raises "Too many attempts in ParallelSolver"). A plain string pickles cleanly
+# across the process boundary, unlike an object() identity sentinel.
+ERROR_SENTINEL = "__query_error__"
+
+
 def process_query(args) -> Optional[Tuple[dict, int]]:
     """
     args: (query, query_types, exp_idx, timeout_sec)
@@ -121,13 +127,18 @@ def process_query(args) -> Optional[Tuple[dict, int]]:
     if check_double_anything(query):
         return None
 
-    complexity = global_miner.compute_query_complexity(query)
-    query_copy = copy.deepcopy(query)
+    # A single pathological query must never take down the whole pool run, so we
+    # isolate every failure here and report it back as an error to be counted.
+    try:
+        complexity = global_miner.compute_query_complexity(query)
+        query_copy = copy.deepcopy(query)
 
-    # Pass timeout_sec down (it can be an int or None)
-    timings, match_count = run_benchmark(
-        query_copy, global_variants, query_types, 1, timeout_sec=timeout_sec
-    )
+        # Pass timeout_sec down (it can be an int or None)
+        timings, match_count = run_benchmark(
+            query_copy, global_variants, query_types, 1, timeout_sec=timeout_sec
+        )
+    except Exception:  # pylint: disable=broad-except
+        return ERROR_SENTINEL, exp_idx
 
     result = {
         "num_elements": complexity["elements"],
@@ -464,16 +475,23 @@ class BenchmarkExecutor:
             
             # Buffers for each experiment
             results_buffers = {i: [] for i in range(len(self.experiments))}
+            error_counts = {i: 0 for i in range(len(self.experiments))}
             batch_save_size = 100
-            
+
             # Progress bar
             for result_tuple in tqdm.tqdm(iterator, total=total_tasks, desc=f"Benchmarking {len(self.experiments)} experiments"):
-                if result_tuple is None: 
+                if result_tuple is None:
                     continue
-                
+
                 result, exp_idx = result_tuple
+
+                # A query that failed in its worker is counted, not stored.
+                if result == ERROR_SENTINEL:
+                    error_counts[exp_idx] += 1
+                    continue
+
                 results_buffers[exp_idx].append(result)
-                
+
                 # Batch save for this experiment
                 if len(results_buffers[exp_idx]) >= batch_save_size:
                     pd.DataFrame(results_buffers[exp_idx]).to_csv(self.experiments[exp_idx].csv_file, mode='a', header=False, index=False)
@@ -483,6 +501,12 @@ class BenchmarkExecutor:
             for i, buffer in results_buffers.items():
                 if buffer:
                     pd.DataFrame(buffer).to_csv(self.experiments[i].csv_file, mode='a', header=False, index=False)
+
+        # Report any queries that were skipped due to worker-side failures.
+        for i, count in error_counts.items():
+            if count:
+                print(f"[!] {self.experiments[i].id}: skipped {count} query(ies) that "
+                      f"failed during matching (e.g. ParallelSolver infinite-loop guard).")
 
         print("All benchmarks finished.")
 
