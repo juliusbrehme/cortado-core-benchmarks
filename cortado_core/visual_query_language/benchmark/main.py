@@ -1,20 +1,13 @@
 import sys
+from pathlib import Path
 from cortado_core.visual_query_language.benchmark.query_miner import QueryMiner
 from cortado_core.visual_query_language.benchmark.experiment import Experiment, BenchmarkExecutor
 from cortado_core.visual_query_language.benchmark.utils import load_variants
 from cortado_core.visual_query_language.query import QueryType
 
 
-# When invoked with `--plot-only` (or `--plot`), we skip the (expensive) benchmark
-# run entirely and only (re)generate the plots from the already existing CSVs in
-# `results/<dataset>/<experiment>/results.csv`. This lets us iterate on plot styling
-# without re-running the whole study.
 PLOT_ONLY = any(arg in ("--plot-only", "--plot") for arg in sys.argv[1:])
 
-
-# Plot style applied to ALL experiments: "box" (grouped boxplots) or "line"
-# (median trend + interquartile band). Change the default here, or override on
-# the command line with `--style line` / `--style=box`.
 def _get_style(argv, default="box"):
     for i, arg in enumerate(argv):
         if arg == "--style" and i + 1 < len(argv):
@@ -22,7 +15,6 @@ def _get_style(argv, default="box"):
         if arg.startswith("--style="):
             return arg.split("=", 1)[1]
     return default
-
 
 PLOT_STYLE = _get_style(sys.argv[1:])
 
@@ -40,11 +32,6 @@ def _get_list_opt(argv, name):
     return cleaned or None
 
 
-# Restrict which datasets / experiments actually run, so you can re-do only the
-# missing ones without wiping (and recomputing) CSVs that are already complete:
-#   --dataset bpi2019            only touch bpi2019
-#   --only anythings,wildcards,choices   only (re)run these experiments
-# Experiments NOT selected keep their existing CSVs and are still plotted.
 ONLY_DATASETS = _get_list_opt(sys.argv[1:], "--dataset")
 ONLY_EXPERIMENTS = _get_list_opt(sys.argv[1:], "--only")
 
@@ -60,7 +47,8 @@ if __name__ == "__main__":
     if PLOT_ONLY:
         print("> Plot-only mode: loading results from CSVs, skipping benchmark run.")
 
-    for variants_name in ["bpi2012", "bpi2019"]:
+    for variants_name in ["bpi2012", "bpi2017", "bpi2019"]:
+
         if ONLY_DATASETS is not None and variants_name not in ONLY_DATASETS:
             continue
 
@@ -76,6 +64,8 @@ if __name__ == "__main__":
         TIMEOUT = 60
 
         SEED = 42
+
+        RESULTS_DIR = Path(__file__).parent / f"resources/results/{variants_name}"
 
         # Publication defaults: render figures at their final on-page size (~half a
         # text width, so two fit across one page) with ~8pt text, so nothing gets
@@ -103,14 +93,14 @@ if __name__ == "__main__":
             desc="Varying query length",
             exp_id="query_length",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=RESULTS_DIR,
             timeout_sec=TIMEOUT
         )
 
         PLOT_CONFIG = {
             "y_min": 10**1,
             "y_max": 10**5,
-            "x_max": 100,
+            "x_max": 10,
             "binned": False,
             "font": FONT,
             "figsize": FIGSIZE
@@ -125,7 +115,7 @@ if __name__ == "__main__":
             desc="Varying parallelism",
             exp_id="parallelism",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=RESULTS_DIR,
             timeout_sec=TIMEOUT
         )
 
@@ -133,7 +123,7 @@ if __name__ == "__main__":
             "y_min": 10**1,
             "y_max": 10**5,
             "binned": False,
-            "x_max": 100,
+            "x_max": 10,
             "font": FONT,
             "figsize": FIGSIZE
         }
@@ -154,7 +144,7 @@ if __name__ == "__main__":
             desc="Varying optionals",
             exp_id="optionals",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=RESULTS_DIR,
             timeout_sec=TIMEOUT
         )
 
@@ -163,7 +153,7 @@ if __name__ == "__main__":
             "y_max": 10**5,
             "binned": False,
             "font": FONT,
-            "x_max": 100,
+            "x_max": 7,
             "figsize": FIGSIZE
         }
 
@@ -183,7 +173,7 @@ if __name__ == "__main__":
             desc="Varying anythings",
             exp_id="anythings",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=RESULTS_DIR,
             timeout_sec=TIMEOUT
         )
 
@@ -192,7 +182,7 @@ if __name__ == "__main__":
             "y_max": 10**5,
             "binned": False,
             "font": FONT,
-            "x_max": 100,
+            "x_max": 10,
             "figsize": FIGSIZE
         }
 
@@ -212,7 +202,7 @@ if __name__ == "__main__":
             desc="Varying wildcards",
             exp_id="wildcards",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=RESULTS_DIR,
             timeout_sec=TIMEOUT
         )
 
@@ -230,7 +220,7 @@ if __name__ == "__main__":
             desc="Varying choices",
             exp_id="choices",
             plot_config=PLOT_CONFIG,
-            results_dir=f"results/{variants_name}",
+            results_dir=RESULTS_DIR,
             timeout_sec=TIMEOUT
         )
 

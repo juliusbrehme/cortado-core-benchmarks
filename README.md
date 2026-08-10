@@ -10,6 +10,8 @@ This directory contains benchmark resources and scripts for evaluating the perfo
 
 
 ## Running Benchmarks
+_{NOTE: Executing all benchmarks is compute heavy. If you do not want to reexecute everything from scratch, you can use the plot only option. This will load our results and plot them with your settings.}_
+
 To run the benchmarks execute the main python script.
 ```python
 python ./cortado_core/visual_query_language/benchmark/main.py
@@ -23,6 +25,11 @@ python ./cortado_core/visual_query_language/benchmark/main.py --plot-only
 By default, the script creates box plots, the figures from the paper (lineplots) are created with:
 ```python
 python ./cortado_core/visual_query_language/benchmark/main.py --plot-only --style line
+```
+
+It is also possible to rerun specific experiments:
+```python
+python ./cortado_core/visual_query_language/benchmark/main.py --dataset bpi2019 --only anythings,wildcards,choices
 ```
 
 The script will load the benchmark datasets from the `/cortado_core/visual_query_language/benchmark/resources` subdirectory, automatically generate queries, measure execution times, and output the results in the `/cortado_core/visual_query_language/benchmark/resources/results/` subdirectory per dataset.
@@ -49,5 +56,5 @@ The `/cortado_core/visual_query_language/benchmark/resources` subdirectory inclu
 To decrease repository size the files are gzipped. Please decompress them before use.
 
 ## Plots
-The plots used in the paper can be found [plots](./cortado_core/visual_query_language/benchmark/plots/)
+The plots used in the paper can be found [plots](./cortado_core/visual_query_language/benchmark/resources/results)
 

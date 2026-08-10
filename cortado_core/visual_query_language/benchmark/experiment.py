@@ -22,13 +22,13 @@ from cortado_core.visual_query_language.query import QueryType
 # FIXED order so a given algorithm keeps the exact same color in every figure of
 # the paper. Never let seaborn cycle these per-figure.
 ALGO_COLORS = {
-    "VM": "#0072B2",       # blue
+    "VM": "#3991ff",       # blue
     "VM_LAZY": "#E69F00",  # orange
-    "DFS": "#009E73",      # bluish green
-    "BFS": "#CC79A7",      # reddish purple (kept well apart from the orange)
+    "DFS": "#76bb17",      # bluish green
+    "BFS": "#b216a4",      # reddish purple (kept well apart from the orange)
 }
 # Extra hues used only if an experiment adds algorithms beyond the four above.
-_EXTRA_COLORS = ["#D55E00", "#56B4E9", "#F0E442", "#000000"]
+_EXTRA_COLORS = ["#ed5525", "#56B4E9", "#F0E442", "#000000"]
 
 # Short, print-friendly legend labels.
 ALGO_LABELS = {

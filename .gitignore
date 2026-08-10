@@ -8,7 +8,6 @@ __pycache__
 outputs/
 pm4py/
 .pytest_cache
-*.csv
 cortado_core.egg-info
 .coverage
 venv/
