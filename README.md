@@ -1,5 +1,5 @@
 # Visual Query Language Benchmark for Cortado-Core
-This repository contains benchmark resources and scripts for evaluating the runtime performance of the Visual Query Language (POVQL) implementation in Cortado Core.
+This repository contains benchmark resources and scripts for evaluating the runtime performance of the Visual Query Language (POVQL) implementation in [Cortado Core](https://github.com/cortado-tool/cortado-core).
 
 ## Requirements
 * Install Python 3.10.x (https://www.python.org/downloads/). Make sure to install a 64-BIT version.
